@@ -1,8 +1,8 @@
 'use strict';
 
 angular.module('copayApp.controllers').controller('preferencesGlobalController',
-  function($scope, $rootScope, $log, configService, uxLanguage) {
-    
+  function($scope, $rootScope, $log, configService, uxLanguage, isCordova, isMobile, pushNotificationsService, profileService, feeService) {
+
     this.init = function() {
       var config = configService.getSync();
       this.unitName = config.wallet.settings.unitName;
@@ -10,11 +10,30 @@ angular.module('copayApp.controllers').controller('preferencesGlobalController',
       this.selectedAlternative = {
         name: config.wallet.settings.alternativeName,
         isoCode: config.wallet.settings.alternativeIsoCode
-      }; 
+      };
+      this.feeOpts = feeService.feeOpts;
+      this.currentFeeLevel = feeService.getCurrentFeeLevel();
+      this.usePushNotifications = isCordova && !isMobile.Windows();
+      $scope.PNEnabledByUser = true;
+      $scope.isIOSApp = isMobile.iOS() && isCordova;
+      if ($scope.isIOSApp) {
+        cordova.plugins.diagnostic.isRemoteNotificationsEnabled(function(isEnabled) {
+          $scope.PNEnabledByUser = isEnabled;
+        });
+      }
       $scope.spendUnconfirmed = config.wallet.spendUnconfirmed;
       $scope.glideraEnabled = config.glidera.enabled;
-      $scope.glideraTestnet = config.glidera.testnet;
+      $scope.coinbaseEnabled = config.coinbase.enabled;
+      $scope.pushNotifications = config.pushNotifications.enabled;
     };
+
+    this.openSettings = function() {
+      cordova.plugins.diagnostic.switchToSettings(function() {
+        $log.debug('switched to settings');
+      }, function(err) {
+        $log.debug(err);
+      });
+    }
 
     var unwatchSpendUnconfirmed = $scope.$watch('spendUnconfirmed', function(newVal, oldVal) {
       if (newVal == oldVal) return;
@@ -25,6 +44,22 @@ angular.module('copayApp.controllers').controller('preferencesGlobalController',
       };
       configService.set(opts, function(err) {
         $rootScope.$emit('Local/SpendUnconfirmedUpdated', newVal);
+        if (err) $log.debug(err);
+      });
+    });
+
+    var unwatchPushNotifications = $scope.$watch('pushNotifications', function(newVal, oldVal) {
+      if (newVal == oldVal) return;
+      var opts = {
+        pushNotifications: {
+          enabled: newVal
+        }
+      };
+      configService.set(opts, function(err) {
+        if (opts.pushNotifications.enabled)
+          pushNotificationsService.enableNotifications(profileService.walletClients);
+        else
+          pushNotificationsService.disableNotifications(profileService.walletClients);
         if (err) $log.debug(err);
       });
     });
@@ -42,15 +77,15 @@ angular.module('copayApp.controllers').controller('preferencesGlobalController',
       });
     });
 
-    var unwatchGlideraTestnet = $scope.$watch('glideraTestnet', function(newVal, oldVal) {
+    var unwatchCoinbaseEnabled = $scope.$watch('coinbaseEnabled', function(newVal, oldVal) {
       if (newVal == oldVal) return;
       var opts = {
-        glidera: {
-          testnet: newVal
+        coinbase: {
+          enabled: newVal
         }
       };
       configService.set(opts, function(err) {
-        $rootScope.$emit('Local/GlideraUpdated');
+        $rootScope.$emit('Local/CoinbaseUpdated');
         if (err) $log.debug(err);
       });
     });
@@ -58,6 +93,7 @@ angular.module('copayApp.controllers').controller('preferencesGlobalController',
     $scope.$on('$destroy', function() {
       unwatchSpendUnconfirmed();
       unwatchGlideraEnabled();
-      unwatchGlideraTestnet();
+      unwatchCoinbaseEnabled();
+      unwatchPushNotifications();
     });
   });

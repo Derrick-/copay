@@ -11,7 +11,7 @@
     </h1>
   </section>
 </nav>
-<div class="modal-content fix-modals-touch" 
+<div class="modal-content fix-modals-touch"
      ng-swipe-disable-mouse
      ng-swipe-right="cancel()"
      ng-init="updateCopayerList()">
@@ -21,28 +21,30 @@
     <div class="size-14 text-light" ng-show="tx.alternativeAmountStr">{{tx.alternativeAmountStr}}</div>
     <i class="db fi-arrow-down size-24 m10v"></i>
     <span class="payment-proposal-to"
-      ng-click="copyAddress(tx.toAddress)">
+      ng-click="copyToClipboard(tx.toAddress)">
       <i class="fi-bitcoin left"></i>
-      <contact ng-if="!tx.hasMultiplesOutputs" class="dib enable_text_select ellipsis m5t size-14" address="{{tx.toAddress}}"></contact>
+      <contact ng-if="!tx.hasMultiplesOutputs" class="dib enable_text_select ellipsis m5t m5b size-14" address="{{tx.toAddress}}"></contact>
       <span ng-if="tx.hasMultiplesOutputs" translate>
         Multiple recipients
       </span>
     </span>
   </div>
-  
+
   <div class="oh">
-    <div class="box-notification m20t" ng-show="error">
+    <div class="box-notification" ng-show="error">
       <span class="text-warning size-14">
         {{error|translate}}
       </span>
     </div>
 
-    <div class="row column m20t text-center text-warning size-12" ng-if="tx.removed" translate>
-      The payment was removed by creator
+    <div class="row" ng-if="tx.removed">
+      <div class="column m20t text-center text-warning size-12" translate>
+        The payment was removed by creator
+      </div>
     </div>
 
-    <div class="oh p20t white" ng-if="tx.pendingForUs">
-      <div class="large-6 medium-6 small-6 columns">
+    <div class="row p20t white" ng-if="tx.pendingForUs">
+      <div class="large-6 medium-6 small-6 columns" ng-show="isShared">
         <button class="button outline round dark-gray expand" ng-click="reject(tx);"
                                                               ng-disabled="loading">
           <i class="fi-x"></i>
@@ -52,7 +54,7 @@
       <div class="large-6 medium-6 small-6 columns text-right" ng-show="canSign">
         <button class="button primary round expand" ng-click="sign(tx)"
                                                     ng-style="{'background-color':color}"
-                                                    ng-disabled="loading">
+                                                    ng-disabled="loading || paymentExpired">
           <i class="fi-check"></i>
           <span translate>Accept</span>
         </button>
@@ -138,10 +140,16 @@
           <contact address="{{tx.toAddress}}" ng-hide="tx.merchant"></contact>
         </span>
       </li>
-      <li class="line-b p10">
+      <li class="line-b p10" ng-if="paymentExpired">
+        <span class="text-gray" translate>Expired</span>
+        <span class="right text-alert">
+          <time>{{tx.paypro.expires * 1000 | amTimeAgo }}</time>
+        </span>
+      </li>
+      <li class="line-b p10" ng-if="!paymentExpired">
         <span class="text-gray" translate>Expires</span>
         <span class="right">
-          <time>{{tx.paypro.expirationDate | amTimeAgo }}</time>
+          <time>{{expires}}</time>
         </span>
       </li>
       <li class="line-b p10">
@@ -168,14 +176,14 @@
         {{ac.copayerName}} <span ng-if="ac.copayerId == copayerId">({{'Me'|translate}})</span>
       </li>
     </ul>
-  </div> 
+  </div>
 
-  <div class="columns text-center m20t" ng-if="tx.canBeRemoved && isShared">
-    <div class="text-gray size-12 m20b" ng-if="!tx.isGlidera" translate>
+  <div class="columns text-center m20t" ng-if="tx.canBeRemoved || (tx.status == 'accepted' && !tx.broadcastedOn)">
+    <div class="text-gray size-12 m20b" ng-show="!tx.isGlidera && isShared" translate>
       * A payment proposal can be deleted if 1) you are the creator, and no other copayer has signed, or 2) 24 hours have passed since the proposal was created.
     </div>
     <button class="tiny round outline dark-gray warning" ng-click="remove(tx)"
-      ng-disabled="loading" ng-show="tx.canBeRemoved">
+      ng-disabled="loading">
       <i class="fi-trash size-14 m5r"></i>
       <span translate>Delete Payment Proposal</span>
     </button>

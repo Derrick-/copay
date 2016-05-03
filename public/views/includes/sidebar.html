@@ -9,7 +9,7 @@
     ng-repeat="item in sidebar.wallets track by $index"
     ng-class="{'selected': item.id == index.walletId}"
     class="nav-item">
-    <a ng-click="sidebar.switchWallet(item.id, index.walletId)" class="oh">
+    <a ng-click="sidebar.closeMenu(); sidebar.switchWallet(item.id, index.walletId)" class="oh">
       <div class="avatar-wallet"
         ng-style="{'background-color':item.color}">
         <i class="icon-wallet size-21"></i>
@@ -19,7 +19,7 @@
     </a>
     </li>
     <li>
-      <a ng-click="$root.go('add')" class="oh">
+      <a ng-click="sidebar.closeMenu(); $root.go('add')" class="oh">
         <i class="icon-arrow-right3 size-18 right m10t vm"></i>
         <i class="fi-plus size-24 icon vm"></i>
         <div class="tu text-bold">
@@ -28,18 +28,17 @@
         <div translate>Create, join or import</div>
       </a>
     </li>
-    <li ng-show="index.glideraEnabled">
-      <a ng-click="$root.go('glidera')" class="oh">
+    <li ng-show="index.isComplete && (index.glideraEnabled || index.coinbaseEnabled)">
+      <a ng-click="sidebar.closeMenu(); $root.go('buyandsell')" class="oh">
         <i class="icon-arrow-right3 size-18 right m10t vm"></i>
         <i class="icon-bank size-24 icon vm"></i>
-        <div class="tu text-bold">
+        <div class="tu text-bold m5t">
           <span class="size-12" translate>Buy &amp; Sell Bitcoin</span>
         </div>
-        <div>Glidera</div>
       </a>
     </li>
     <li>
-      <a ng-click="$root.go('preferencesGlobal')" class="oh">
+      <a ng-click="sidebar.closeMenu(); $root.go('preferencesGlobal')" class="oh">
         <i class="icon-arrow-right3 size-18 right m10t vm"></i>
         <i class="fi-widget size-24 icon vm"></i>
         <div class="tu text-bold">

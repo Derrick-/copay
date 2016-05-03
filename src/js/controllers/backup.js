@@ -6,6 +6,7 @@ angular.module('copayApp.controllers').controller('backupController',
     var self = this;
     var fc = profileService.focusedClient;
     var customWords = [];
+    self.walletName = fc.credentials.walletName;
 
     function init() {
       $scope.passphrase = '';
@@ -73,7 +74,7 @@ angular.module('copayApp.controllers').controller('backupController',
             $scope.$apply();
           }, 1);
 
-          profileService.unlockFC(function(err) {
+          profileService.unlockFC({}, function(err) {
             if (err) {
               self.error = bwsError.msg(err, gettext('Could not decrypt'));
               $log.warn('Error decrypting credentials:', self.error); //TODO

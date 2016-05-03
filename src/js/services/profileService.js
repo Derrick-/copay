@@ -1,8 +1,10 @@
 'use strict';
 angular.module('copayApp.services')
-  .factory('profileService', function profileServiceFactory($rootScope, $location, $timeout, $filter, $log, lodash, storageService, bwcService, configService, notificationService, isChromeApp, isCordova, gettext, gettextCatalog, nodeWebkit, bwsError, uxLanguage, ledger, bitcore, trezor) {
+  .factory('profileService', function profileServiceFactory($rootScope, $timeout, $filter, $log, sjcl, lodash, storageService, bwcService, configService, notificationService, pushNotificationsService, isChromeApp, isCordova, isMobile, gettext, gettextCatalog, nodeWebkit, bwsError, uxLanguage, bitcore) {
 
     var root = {};
+    var errors = bwcService.getErrors();
+    var usePushNotifications = isCordova && !isMobile.Windows();
 
     var FOREGROUND_UPDATE_PERIOD = 5;
     var BACKGROUND_UPDATE_PERIOD = 30;
@@ -91,13 +93,18 @@ angular.module('copayApp.services')
         $log.debug('Wallet completed');
 
         root.updateCredentialsFC(function() {
-          $rootScope.$emit('Local/WalletCompleted')
+          $rootScope.$emit('Local/WalletCompleted', client.credentials.walletId);
         });
 
       });
 
       root.walletClients[credentials.walletId].started = true;
       root.walletClients[credentials.walletId].doNotVerifyPayPro = isChromeApp;
+
+      if (client.hasPrivKeyEncrypted() && !client.isPrivKeyEncrypted()) {
+        $log.warn('Auto locking unlocked wallet:' + credentials.walletId);
+        client.lock();
+      }
 
       client.initialize({}, function(err) {
         if (err) {
@@ -110,15 +117,15 @@ angular.module('copayApp.services')
 
     root.setWalletClients = function() {
       var credentials = root.profile.credentials;
-      lodash.each(credentials, function(credentials) {
-        root.setWalletClient(credentials);
+      lodash.each(credentials, function(credential) {
+        root.setWalletClient(credential);
       });
       $rootScope.$emit('Local/WalletListUpdated');
     };
 
     root.bindProfile = function(profile, cb) {
       root.profile = profile;
-      
+
       configService.get(function(err) {
         $log.debug('Preferences read');
         if (err) return cb(err);
@@ -127,21 +134,52 @@ angular.module('copayApp.services')
           if (err) return cb(err);
           root._setFocus(focusedWalletId, function() {
             $rootScope.$emit('Local/ProfileBound');
+            if (usePushNotifications)
+              root.pushNotificationsInit();
             root.isDisclaimerAccepted(function(val) {
-              if (!val) { 
+              if (!val) {
                 return cb(new Error('NONAGREEDDISCLAIMER: Non agreed disclaimer'));
-              }
-              else {
+              } else {
                 return cb();
               }
             });
           });
         });
       });
-        
     };
 
-    root.loadAndBindProfile = function(cb) { 
+    root.pushNotificationsInit = function() {
+      var defaults = configService.getDefaults();
+      var push = pushNotificationsService.init(root.walletClients);
+
+      push.on('notification', function(data) {
+        if (!data.additionalData.foreground) {
+          window.ignoreMobilePause = true;
+          $log.debug('Push notification event: ', data.message);
+
+          $timeout(function() {
+            var wallets = root.getWallets();
+            var walletToFind = data.additionalData.walletId;
+
+            var walletFound = lodash.find(wallets, function(w) {
+              return (lodash.isEqual(walletToFind, sjcl.codec.hex.fromBits(sjcl.hash.sha256.hash(w.id))));
+            });
+
+            if (!walletFound) return $log.debug('Wallet not found');
+            root.setAndStoreFocus(walletFound.id, function() {});
+          }, 100);
+        }
+      });
+    };
+
+
+    root.getProfile = function(cb) {
+      storageService.getProfile(function(err, profile) {
+        return cb(err, profile);
+      });
+    };
+
+    root.loadAndBindProfile = function(cb) {
       storageService.getProfile(function(err, profile) {
         if (err) {
           $rootScope.$emit('Local/DeviceError', err);
@@ -305,34 +343,40 @@ angular.module('copayApp.services')
     root.deleteWalletFC = function(opts, cb) {
       var fc = root.focusedClient;
       var walletId = fc.credentials.walletId;
-      $log.debug('Deleting Wallet:', fc.credentials.walletName);
 
-      fc.removeAllListeners();
-      root.profile.credentials = lodash.reject(root.profile.credentials, {
-        walletId: walletId
-      });
+      pushNotificationsService.unsubscribe(root.getClient(walletId), function(err) {
+        if (err) $log.warn('Unsubscription error: ' + err.message);
+        else $log.debug('Unsubscribed from push notifications service');
 
-      delete root.walletClients[walletId];
-      root.focusedClient = null;
+        $log.debug('Deleting Wallet:', fc.credentials.walletName);
 
-      storageService.clearLastAddress(walletId, function(err) {
-        if (err) $log.warn(err);
-      });
+        fc.removeAllListeners();
+        root.profile.credentials = lodash.reject(root.profile.credentials, {
+          walletId: walletId
+        });
 
-      storageService.removeTxHistory(walletId, function(err) {
-        if (err) $log.warn(err);
-      });
+        delete root.walletClients[walletId];
+        root.focusedClient = null;
 
-      storageService.clearBackupFlag(walletId, function(err) {
-        if (err) $log.warn(err);
-      });
+        storageService.clearLastAddress(walletId, function(err) {
+          if (err) $log.warn(err);
+        });
 
-      $timeout(function() {
-        root.setWalletClients();
-        root.setAndStoreFocus(null, function() {
-          storageService.storeProfile(root.profile, function(err) {
-            if (err) return cb(err);
-            return cb();
+        storageService.removeTxHistory(walletId, function(err) {
+          if (err) $log.warn(err);
+        });
+
+        storageService.clearBackupFlag(walletId, function(err) {
+          if (err) $log.warn(err);
+        });
+
+        $timeout(function() {
+          root.setWalletClients();
+          root.setAndStoreFocus(null, function() {
+            storageService.storeProfile(root.profile, function(err) {
+              if (err) return cb(err);
+              return cb();
+            });
           });
         });
       });
@@ -368,6 +412,7 @@ angular.module('copayApp.services')
         return cb(gettext('Wallet already in Copay' + ": ") + w.walletName);
       }
 
+      var config = configService.getSync();
       var defaults = configService.getDefaults();
       var bwsFor = {};
       bwsFor[walletId] = opts.bwsurl || defaults.bws.url;
@@ -398,6 +443,10 @@ angular.module('copayApp.services')
         handleImport(function() {
           root.setAndStoreFocus(walletId, function() {
             storageService.storeProfile(root.profile, function(err) {
+
+              $rootScope.$emit('Local/ProfileCreated');
+              if (config.pushNotifications.enabled)
+                pushNotificationsService.enableNotifications(root.walletClients);
               return cb(err, walletId);
             });
           });
@@ -429,7 +478,7 @@ angular.module('copayApp.services')
       root._addWalletClient(walletClient, opts, function(err, walletId) {
         if (err) return cb(err);
         root.setMetaData(walletClient, addressBook, historyCache, function(error) {
-          if (error) console.log(error);
+          if (error) $log.warn(error);
           return cb(err, walletId);
         });
       });
@@ -492,8 +541,8 @@ angular.module('copayApp.services')
         if (err) {
 
           // in HW wallets, req key is always the same. They can't addAccess.
-          if (err.code == 'NOT_AUTHORIZED')
-            err.code = 'WALLET_DOES_NOT_EXIST';
+          if (err instanceof errors.NOT_AUTHORIZED)
+            err.name = 'WALLET_DOES_NOT_EXIST';
 
           return bwsError.cb(err, gettext('Could not import'), cb);
         }
@@ -522,36 +571,27 @@ angular.module('copayApp.services')
     };
 
     root.setDisclaimerAccepted = function(cb) {
-      storageService.getProfile(function(err, profile) {
-        profile.disclaimerAccepted = true;
-        storageService.storeProfile(profile, function(err) {
-          return cb(err);
-        });
+      root.profile.disclaimerAccepted = true;
+      storageService.storeProfile(root.profile, function(err) {
+        return cb(err);
       });
     };
 
     root.isDisclaimerAccepted = function(cb) {
-      storageService.getProfile(function(err, profile) {
-        if (profile && profile.disclaimerAccepted)
+      var disclaimerAccepted = root.profile && root.profile.disclaimerAccepted;
+
+      if (disclaimerAccepted)
+        return cb(true);
+
+      // OLD flag
+      storageService.getCopayDisclaimerFlag(function(err, val) {
+        if (val) {
+          root.profile.disclaimerAccepted = true;
           return cb(true);
-        else if (profile && !profile.disclaimerAccepted) {
-          storageService.getCopayDisclaimerFlag(function(err, val) {
-            if (val) {
-              profile.disclaimerAccepted = true;
-              storageService.storeProfile(profile, function(err) {
-                if (err) $log.error(err);
-                return cb(true);
-              });
-            }
-            else {
-              return cb();
-            }
-          });
-        }
-        else {
+        } else {
           return cb();
         }
-      });   
+      });
     };
 
     root.importLegacyWallet = function(username, password, blob, cb) {
@@ -624,8 +664,13 @@ angular.module('copayApp.services')
       } catch (e) {};
     };
 
-    root.unlockFC = function(cb) {
-      var fc = root.focusedClient;
+    root.unlockFC = function(opts, cb) {
+      opts = opts || {};
+      var fc = opts.selectedClient || root.focusedClient;
+
+      if (!fc.isPrivKeyEncrypted())
+        return cb();
+
       $log.debug('Wallet is encrypted');
       $rootScope.$emit('Local/NeedsPassword', false, function(err2, password) {
         if (err2 || !password) {
@@ -641,13 +686,19 @@ angular.module('copayApp.services')
             message: gettext('Wrong password')
           });
         }
-        $timeout(function() {
-          if (fc.hasPrivKeyEncrypted()) {
-            $log.debug('Locking wallet automatically');
-            root.lockFC();
-          };
-        }, 2000);
         return cb();
+      });
+    };
+
+    root.isBackupNeeded = function(walletId, cb) {
+      var c = root.getClient(walletId);
+      if (c.isPrivKeyExternal()) return cb(false);
+      if (!c.credentials.mnemonic) return cb(false);
+      if (c.credentials.network == 'testnet') return cb(false);
+
+      storageService.getBackupFlag(walletId, function(err, val) {
+        if (err || val) return cb(false);
+        return cb(true);
       });
     };
 
@@ -664,67 +715,16 @@ angular.module('copayApp.services')
           name: config.aliasFor[c.walletId] || c.walletName,
           id: c.walletId,
           network: c.network,
-          color: config.colorFor[c.walletId] || '#4A90E2'
+          color: config.colorFor[c.walletId] || '#4A90E2',
+          copayerId: c.copayerId
         };
       });
-      ret = lodash.filter(ret, function(w) {
-        return (w.network == network);
-      });
-      return lodash.sortBy(ret, 'name');
-    };
-
-    root._signWithLedger = function(txp, cb) {
-      var fc = root.focusedClient;
-      $log.info('Requesting Ledger Chrome app to sign the transaction');
-
-      ledger.signTx(txp, fc.credentials.account, function(result) {
-        $log.debug('Ledger response', result);
-        if (!result.success)
-          return cb(result.message || result.error);
-
-        txp.signatures = lodash.map(result.signatures, function(s) {
-          return s.substring(0, s.length - 2);
-        });
-        return fc.signTxProposal(txp, cb);
-      });
-    };
-
-
-    root._signWithTrezor = function(txp, cb) {
-      var fc = root.focusedClient;
-      $log.info('Requesting Trezor  to sign the transaction');
-
-      var xPubKeys = lodash.pluck(fc.credentials.publicKeyRing, 'xPubKey');
-      trezor.signTx(xPubKeys, txp, fc.credentials.account, function(err, result) {
-        if (err) return cb(err);
-
-        $log.debug('Trezor response', result);
-        txp.signatures = result.signatures;
-        return fc.signTxProposal(txp, cb);
-      });
-    };
-
-
-    root.signTxProposal = function(txp, cb) {
-      var fc = root.focusedClient;
-
-      if (fc.isPrivKeyExternal()) {
-        switch (fc.getPrivKeyExternalSourceName()) {
-          case 'ledger':
-            return root._signWithLedger(txp, cb);
-          case 'trezor':
-            return root._signWithTrezor(txp, cb);
-          default:
-            var msg = 'Unsupported External Key:' + fc.getPrivKeyExternalSourceName();
-            $log.error(msg);
-            return cb(msg);
-        }
-      } else {
-        return fc.signTxProposal(txp, function(err, signedTxp) {
-          root.lockFC();
-          return cb(err, signedTxp);
+      if (network) {
+        ret = lodash.filter(ret, function(w) {
+          return (w.network == network);
         });
       }
+      return lodash.sortBy(ret, 'name');
     };
 
     return root;

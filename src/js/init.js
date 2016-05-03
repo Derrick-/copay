@@ -10,7 +10,9 @@ angular.element(document).ready(function() {
   var handleBitcoinURI = function(url) {
     if (!url) return;
     if (url.indexOf('glidera') != -1) {
-      url = '#/uri-glidera' + url.replace('bitcoin://glidera', '');
+      url = '#/uri-glidera' + url.replace('copay://glidera', '');
+    } else if (url.indexOf('coinbase') != -1) {
+      url = '#/uri-coinbase' + url.replace('copay://coinbase', '');
     } else {
       url = '#/uri-payment/' + url;
     }
@@ -46,7 +48,7 @@ angular.element(document).ready(function() {
         }
         setTimeout(function() {
           var loc = window.location;
-          var ignoreMobilePause = loc.toString().match(/(glidera|buy|sell)/) ? true : false;
+          var ignoreMobilePause = loc.toString().match(/(buy|sell|buycoinbase|sellcoinbase)/) ? true : false;
           window.ignoreMobilePause = ignoreMobilePause;
         }, 100);
       }, false);

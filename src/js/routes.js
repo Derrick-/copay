@@ -32,8 +32,8 @@ angular
             if (level == 'error')
               console.log(arguments);
 
-            var args = [].slice.call(arguments);
-            if (!Array.isArray(args)) args = [args];
+            var args = Array.prototype.slice.call(arguments);
+
             args = args.map(function(v) {
               try {
                 if (typeof v == 'undefined') v = 'undefined';
@@ -47,8 +47,8 @@ angular
                 // Trim output in mobile
                 if (window.cordova) {
                   v = v.toString();
-                  if (v.length > 1000) {
-                    v = v.substr(0, 997) + '...';
+                  if (v.length > 3000) {
+                    v = v.substr(0, 2997) + '...';
                   }
                 }
               } catch (e) {
@@ -57,9 +57,11 @@ angular
               }
               return v;
             });
+
             try {
               if (window.cordova)
                 console.log(args.join(' '));
+
               historicLog.add(level, args.join(' '));
               orig.apply(null, args);
             } catch (e) {
@@ -78,7 +80,6 @@ angular
     $stateProvider
       .state('translators', {
         url: '/translators',
-        walletShouldBeComplete: true,
         needProfile: true,
         views: {
           'main': {
@@ -194,7 +195,6 @@ angular
       })
       .state('preferencesLanguage', {
         url: '/preferencesLanguage',
-        walletShouldBeComplete: true,
         needProfile: true,
         views: {
           'main': {
@@ -205,7 +205,6 @@ angular
       .state('preferencesUnit', {
         url: '/preferencesUnit',
         templateUrl: 'views/preferencesUnit.html',
-        walletShouldBeComplete: true,
         needProfile: true,
         views: {
           'main': {
@@ -216,7 +215,6 @@ angular
       .state('preferencesFee', {
         url: '/preferencesFee',
         templateUrl: 'views/preferencesFee.html',
-        walletShouldBeComplete: true,
         needProfile: true,
         views: {
           'main': {
@@ -273,6 +271,64 @@ angular
           },
         }
       })
+      .state('coinbase', {
+        url: '/coinbase',
+        walletShouldBeComplete: true,
+        needProfile: true,
+        views: {
+          'main': {
+            templateUrl: 'views/coinbase.html'
+          },
+        }
+      })
+      .state('preferencesCoinbase', {
+        url: '/preferencesCoinbase',
+        walletShouldBeComplete: true,
+        needProfile: true,
+        views: {
+          'main': {
+            templateUrl: 'views/preferencesCoinbase.html'
+          },
+        }
+      })
+      .state('uricoinbase', {
+        url: '/uri-coinbase?code',
+        needProfile: true,
+        views: {
+          'main': {
+            templateUrl: 'views/coinbaseUri.html'
+          },
+        }
+      })
+      .state('buyCoinbase', {
+        url: '/buycoinbase',
+        walletShouldBeComplete: true,
+        needProfile: true,
+        views: {
+          'main': {
+            templateUrl: 'views/buyCoinbase.html'
+          },
+        }
+      })
+      .state('sellCoinbase', {
+        url: '/sellcoinbase',
+        walletShouldBeComplete: true,
+        needProfile: true,
+        views: {
+          'main': {
+            templateUrl: 'views/sellCoinbase.html'
+          },
+        }
+      })
+      .state('buyandsell', {
+        url: '/buyandsell',
+        needProfile: true,
+        views: {
+          'main': {
+            templateUrl: 'views/buyAndSell.html'
+          },
+        }
+      })
       .state('preferencesAdvanced', {
         url: '/preferencesAdvanced',
         templateUrl: 'views/preferencesAdvanced.html',
@@ -298,7 +354,6 @@ angular
       .state('preferencesAltCurrency', {
         url: '/preferencesAltCurrency',
         templateUrl: 'views/preferencesAltCurrency.html',
-        walletShouldBeComplete: true,
         needProfile: true,
         views: {
           'main': {
@@ -389,7 +444,6 @@ angular
       .state('about', {
         url: '/about',
         templateUrl: 'views/preferencesAbout.html',
-        walletShouldBeComplete: true,
         needProfile: true,
         views: {
           'main': {
@@ -400,7 +454,6 @@ angular
       .state('logs', {
         url: '/logs',
         templateUrl: 'views/preferencesLogs.html',
-        walletShouldBeComplete: true,
         needProfile: true,
         views: {
           'main': {
@@ -511,7 +564,6 @@ angular
       });
   })
   .run(function($rootScope, $state, $log, uriHandler, isCordova, profileService, $timeout, nodeWebkit, uxLanguage, animationService) {
-    FastClick.attach(document.body);
 
     uxLanguage.init();
 
@@ -535,6 +587,7 @@ angular
     }
 
     $rootScope.$on('$stateChangeStart', function(event, toState, toParams, fromState, fromParams) {
+      $log.debug('Route change from:', fromState.name || '-', ' to:', toState.name);
 
       if (!profileService.profile && toState.needProfile) {
 
@@ -557,12 +610,12 @@ angular
             $state.transitionTo(toState.name || toState, toParams);
           }
         });
-      }
+      } else {
+        if (profileService.focusedClient && !profileService.focusedClient.isComplete() && toState.walletShouldBeComplete) {
 
-      if (profileService.focusedClient && !profileService.focusedClient.isComplete() && toState.walletShouldBeComplete) {
-
-        $state.transitionTo('copayers');
-        event.preventDefault();
+          $state.transitionTo('copayers');
+          event.preventDefault();
+        }
       }
 
       if (!animationService.transitionAnimated(fromState, toState)) {

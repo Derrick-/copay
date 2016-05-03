@@ -1,7 +1,7 @@
 'use strict';
 
 angular.module('copayApp.controllers').controller('preferencesController',
-  function($scope, $rootScope, $timeout, $log, configService, profileService) {
+  function($scope, $rootScope, $timeout, $log, configService, profileService, txService) {
 
     var fc = profileService.focusedClient;
     $scope.deleted = false;
@@ -19,12 +19,12 @@ angular.module('copayApp.controllers').controller('preferencesController',
         //this.externalIndex = fc.getExternalIndex();
       }
 
-      if (window.touchidAvailable) {
-        var walletId = fc.credentials.walletId;
+      var walletId = fc.credentials.walletId;
+      config.touchIdFor = config.touchIdFor || {};
+      $scope.touchid = config.touchIdFor[walletId];
+
+      if (window.touchidAvailable)
         this.touchidAvailable = true;
-        config.touchIdFor = config.touchIdFor || {};
-        $scope.touchid = config.touchIdFor[walletId];
-      }
     };
 
     var unwatchEncrypt = $scope.$watch('encrypt', function(val) {
@@ -44,7 +44,7 @@ angular.module('copayApp.controllers').controller('preferencesController',
         });
       } else {
         if (!val && fc.hasPrivKeyEncrypted()) {
-          profileService.unlockFC(function(err) {
+          profileService.unlockFC({}, function(err) {
             if (err) {
               $scope.encrypt = true;
               return;
@@ -75,7 +75,7 @@ angular.module('copayApp.controllers').controller('preferencesController',
       };
       opts.touchIdFor[walletId] = newVal;
 
-      $rootScope.$emit('Local/RequestTouchid', function(err) {
+      txService.setTouchId(function(err) {
         if (err) {
           $log.debug(err);
           $timeout(function() {

@@ -7,6 +7,9 @@ angular.module('copayApp.services')
       name: 'English',
       isoCode: 'en',
     }, {
+      name: 'Český',
+      isoCode: 'cs',
+    }, {
       name: 'Français',
       isoCode: 'fr',
     }, {
@@ -19,6 +22,9 @@ angular.module('copayApp.services')
       name: '日本語',
       isoCode: 'ja',
       useIdeograms: true,
+    }, {
+      name: 'Polski',
+      isoCode: 'pl',
     }, {
       name: 'Pусский',
       isoCode: 'ru',

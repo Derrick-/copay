@@ -39,8 +39,6 @@ angular.module('copayApp.services')
             var reader = new FileReader();
 
             reader.onloadend = function(e) {
-              if (this.result)
-                $log.debug("Read: ", this.result);
               return cb(null, this.result)
             }
 
@@ -77,7 +75,7 @@ angular.module('copayApp.services')
             if (lodash.isObject(v))
               v = JSON.stringify(v);
 
-            if (!lodash.isString(v)){
+            if (!lodash.isString(v)) {
               v = v.toString();
             }
 
@@ -118,8 +116,8 @@ angular.module('copayApp.services')
           fileEntry.remove(function() {
             console.log('File removed.');
             return cb();
-          }, cb, cb);
-        });
+          }, cb);
+        }, cb);
       });
     };
 

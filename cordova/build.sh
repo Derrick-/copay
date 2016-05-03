@@ -84,17 +84,19 @@ if [ ! -d $PROJECT ]; then
   cordova plugin add https://github.com/florentvaldelievre/virtualartifacts-webIntent.git
   checkOK
 
-  if [ $CURRENT_OS != "WP8" ]
+  if [ $CURRENT_OS == "IOS" ]
   then
     cordova plugin add https://github.com/tjwoon/csZBar.git
     checkOK
   else
-    echo "${OpenColor}${Green}* Using plugin phonegap-plugin-barcodescanner for Windows Phone 8  ${CloseColor}"
-    cordova plugin add https://github.com/phonegap/phonegap-plugin-barcodescanner.git
+    cordova plugin add https://github.com/jrontend/phonegap-plugin-barcodescanner
     checkOK
   fi
 
   cordova plugin add cordova-plugin-globalization
+  checkOK
+
+  cordova plugin add cordova.plugins.diagnostic
   checkOK
 
   cordova plugin add cordova-plugin-splashscreen
@@ -103,7 +105,10 @@ if [ ! -d $PROJECT ]; then
   cordova plugin add cordova-plugin-statusbar
   checkOK
 
-  cordova plugin add cordova-plugin-customurlscheme --variable URL_SCHEME=bitcoin
+  cordova plugin add phonegap-plugin-push@1.2.3
+  checkOK
+
+  cordova plugin add https://github.com/cmgustavo/Custom-URL-scheme.git --variable URL_SCHEME=bitcoin --variable SECOND_URL_SCHEME=copay
   checkOK
 
   cordova plugin add cordova-plugin-inappbrowser
@@ -115,13 +120,10 @@ if [ ! -d $PROJECT ]; then
   cordova plugin add https://github.com/VersoSolutions/CordovaClipboard
   checkOK
 
-  cordova plugin add https://github.com/katzer/cordova-plugin-email-composer.git#f53df5c31c50d4f39d214a5cbe49abb0c5727a49
-  checkOK
-
   cordova plugin add https://github.com/EddyVerbruggen/SocialSharing-PhoneGap-Plugin.git && cordova prepare
   checkOK
 
-  cordova plugin add hu.dpal.phonegap.plugins.spinnerdialog
+  cordova plugin add cordova-plugin-spinner-dialog
   checkOK
 
   cordova plugin add cordova-plugin-dialogs
@@ -133,7 +135,7 @@ if [ ! -d $PROJECT ]; then
   cordova plugin add cordova-plugin-console
   checkOK
 
-  cordova plugin add hu.dpal.phonegap.plugins.uniquedeviceid
+  cordova plugin add cordova-plugin-uniquedeviceid
   checkOK
 
   cordova plugin add cordova-plugin-file@3.0.0
@@ -146,9 +148,6 @@ if [ ! -d $PROJECT ]; then
   checkOK
 
   cordova plugin add cordova-ios-requires-fullscreen
-  checkOK
-
-  cordova plugin add cordova-plugin-disable-bitcode
   checkOK
 
 fi
@@ -187,7 +186,7 @@ if [ $CURRENT_OS == "ANDROID" ]; then
 
 #  cp android/AndroidManifest.xml $PROJECT/platforms/android/AndroidManifest.xml
 #  checkOK
-  
+
   cp android/build-extras.gradle $PROJECT/platforms/android/build-extras.gradle
   checkOK
 
@@ -195,29 +194,6 @@ if [ $CURRENT_OS == "ANDROID" ]; then
   checkOK
 
   cp -R android/res/* $PROJECT/platforms/android/res
-  checkOK
-fi
-
-if [ $CURRENT_OS == "IOS" ]; then
-
-  echo "IOS project!!!"
-
-  mkdir -p $PROJECT/platforms/ios
-  checkOK
-
-  cp ios/Copay-Info.plist $PROJECT/platforms/ios/Copay-Info.plist
-  checkOK
-
-  mkdir -p $PROJECT/platforms/ios/Copay/Resources/icons
-  checkOK
-
-  mkdir -p $PROJECT/platforms/ios/Copay/Resources/splash
-  checkOK
-
-  cp -R ios/icons/* $PROJECT/platforms/ios/Copay/Resources/icons
-  checkOK
-
-  cp -R ios/splash/* $PROJECT/platforms/ios/Copay/Resources/splash
   checkOK
 fi
 
@@ -240,5 +216,3 @@ if [ $CURRENT_OS == "WP8" ]; then
     checkOK
   fi
 fi
-
-

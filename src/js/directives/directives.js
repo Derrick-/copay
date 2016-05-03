@@ -317,4 +317,5 @@ angular.module('copayApp.directives')
       replace: true,
       templateUrl: 'views/includes/available-balance.html'
     }
-  });
+  })
+;

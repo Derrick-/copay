@@ -1,12 +1,12 @@
 'use strict';
 
 angular.module('copayApp.controllers').controller('disclaimerController',
-  function($scope, $timeout, $log, profileService, isCordova, storageService, applicationService, gettextCatalog, uxLanguage, go) {
+  function($scope, $timeout, $log, profileService, isCordova, applicationService, gettextCatalog, uxLanguage, go) {
     var self = this;
     self.tries = 0;
+    $scope.creatingProfile = true;
 
     var create = function(noWallet) {
-      $scope.creatingProfile = true;
       profileService.create({
         noWallet: noWallet
       }, function(err) {
@@ -34,14 +34,27 @@ angular.module('copayApp.controllers').controller('disclaimerController',
 
     this.init = function() {
       self.lang = uxLanguage.currentLanguage;
-      storageService.getProfile(function(err, profile) {
-        if (!profile) create(false);
-        else $scope.creatingProfile = false;
 
-        //compatible
-        profileService.isDisclaimerAccepted(function(val) {
-          if (val) go.walletHome();
-        });
+      profileService.getProfile(function(err, profile) {
+        if (!profile) {
+          create(false);
+        } else {
+          $log.debug('There is a profile already');
+          $scope.creatingProfile = false;
+          profileService.bindProfile(profile, function(err) {
+            if (!err || !err.message || !err.message.match('NONAGREEDDISCLAIMER')) {
+              $log.debug('Disclaimer already accepted at #disclaimer. Redirect to Wallet Home.')
+              go.walletHome();
+            }
+          });
+        }
+      });
+    };
+
+    this.accept = function() {
+      profileService.setDisclaimerAccepted(function(err) {
+        if (err) $log.error(err);
+        else go.walletHome();
       });
     };
   });

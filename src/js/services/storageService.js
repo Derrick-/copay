@@ -4,7 +4,7 @@ angular.module('copayApp.services')
 
     var root = {};
 
-    // File storage is not supported for writting according to 
+    // File storage is not supported for writing according to
     // https://github.com/apache/cordova-plugin-file/#supported-platforms
     var shouldUseFileStorage = isCordova && !isMobile.Windows();
     $log.debug('Using file storage:', shouldUseFileStorage);
@@ -223,6 +223,30 @@ angular.module('copayApp.services')
       storage.remove('glideraToken-' + network, cb);
     };
 
+    root.setCoinbaseRefreshToken = function(network, token, cb) {
+      storage.set('coinbaseRefreshToken-' + network, token, cb);
+    };
+
+    root.getCoinbaseRefreshToken = function(network, cb) {
+      storage.get('coinbaseRefreshToken-' + network, cb);
+    };
+
+    root.removeCoinbaseRefreshToken = function(network, cb) {
+      storage.remove('coinbaseRefreshToken-' + network, cb);
+    };
+
+    root.setCoinbaseToken = function(network, token, cb) {
+      storage.set('coinbaseToken-' + network, token, cb);
+    };
+
+    root.getCoinbaseToken = function(network, cb) {
+      storage.get('coinbaseToken-' + network, cb);
+    };
+
+    root.removeCoinbaseToken = function(network, cb) {
+      storage.remove('coinbaseToken-' + network, cb);
+    };
+
     root.setAddressbook = function(network, addressbook, cb) {
       storage.set('addressbook-' + network, addressbook, cb);
     };
@@ -246,6 +270,18 @@ angular.module('copayApp.services')
     root.removeTxHistory = function(walletId, cb) {
       storage.remove('txsHistory-' + walletId, cb);
     }
+
+    root.setCoinbaseTxs = function(network, ctx, cb) {
+      storage.set('coinbaseTxs-' + network, ctx, cb);
+    };
+
+    root.getCoinbaseTxs = function(network, cb) {
+      storage.get('coinbaseTxs-' + network, cb);
+    };
+
+    root.removeCoinbaseTxs = function(network, cb) {
+      storage.remove('coinbaseTxs-' + network, cb);
+    };
 
     return root;
   });
